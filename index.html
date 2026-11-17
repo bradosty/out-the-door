@@ -1,0 +1,159 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Out-the-Door Calculator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+  /* Layout: one narrow column. Price entry on top, buyer's-order lines below, big total at the bottom. */
+  :root {
+    --bg: #f4f7f6;
+    --surface: #ffffff;
+    --fg: #14201d;
+    --muted: #5a6b66;
+    --line: #d8e1de;
+    --accent: #0f6b5c;
+    --accent-soft: #e3f1ed;
+    --font-display: "Space Grotesk", "Helvetica Neue", Arial, sans-serif;
+    --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-num: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e1513; --surface: #151f1b; --fg: #e6efec; --muted: #93a8a1;
+      --line: #263631; --accent: #4fc3ab; --accent-soft: #17302a;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1513; --surface: #151f1b; --fg: #e6efec; --muted: #93a8a1;
+    --line: #263631; --accent: #4fc3ab; --accent-soft: #17302a;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.5;
+    padding-block: 20px 32px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .wrap { max-width: 520px; margin: 0 auto; }
+  h1 { font-family: var(--font-display); font-size: clamp(1.5rem, 5vw, 1.9rem); line-height: 1.15; margin: 0 0 16px; text-wrap: balance; }
+
+  .by { color: var(--muted); font-size: 0.9rem; margin: -8px 0 16px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 16px; min-width: 0; }
+  .card h2 { font-family: var(--font-display); font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+
+  label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; font-weight: 500; min-width: 0; }
+  .field { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); min-width: 0; }
+  .field:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  .field span { padding-left: 12px; color: var(--muted); font-family: var(--font-num); }
+  .field span.end { padding: 0 12px 0 0; }
+  input[type="text"], select { font: inherit; color: var(--fg); background: transparent; border: 0; outline: 0; padding: 12px; width: 100%; min-width: 0; font-variant-numeric: tabular-nums; }
+  #price { font-size: 1.4rem; font-family: var(--font-num); font-weight: 600; }
+  select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+  select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .row { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 12px; }
+  @media (max-width: 400px) { .row { grid-template-columns: minmax(0, 1fr); } }
+
+  .lines { margin: 0; padding: 0; list-style: none; }
+  .lines li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px dashed var(--line); }
+  .lines li span:last-child { font-family: var(--font-num); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .lines li.sub { color: var(--muted); font-size: 0.88rem; padding-left: 14px; }
+  .total { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 14px; padding: 14px; background: var(--accent-soft); border-radius: 8px; }
+  .total b { font-family: var(--font-display); font-size: 1rem; letter-spacing: 0.06em; }
+  .total .amt { font-family: var(--font-num); font-size: 1.9rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .note { color: var(--muted); font-size: 0.8rem; margin: 0; }
+</style>
+
+<div class="wrap">
+  <h1>Out-the-Door Calculator</h1>
+  <p class="by">by Andam Bradosty</p>
+
+  <div class="card">
+    <label for="price">Vehicle price
+      <span class="field"><span>$</span><input id="price" type="text" inputmode="decimal" value="30000" autocomplete="off"></span>
+    </label>
+    <div class="row">
+      <label for="doc">Dealer doc fee (taxable)
+        <span class="field"><span>$</span><input id="doc" type="text" inputmode="decimal" value="399" autocomplete="off"></span>
+      </label>
+      <label for="rate">Sales tax, Millcreek
+        <span class="field"><input id="rate" type="text" inputmode="decimal" value="7.45" autocomplete="off"><span class="end">%</span></span>
+      </label>
+      <label for="age">Model year
+        <select id="age">
+          <option value="150">2024 to 2026</option>
+          <option value="110">2021 to 2023</option>
+          <option value="80">2018 to 2020</option>
+          <option value="50">2015 to 2017</option>
+          <option value="10">2014 or older</option>
+        </select>
+      </label>
+      <label for="power">Powertrain
+        <select id="power">
+          <option value="0">Gas or diesel</option>
+          <option value="25">Conventional hybrid</option>
+          <option value="64">Plug-in hybrid</option>
+          <option value="180">Electric</option>
+        </select>
+      </label>
+    </div>
+  </div>
+
+  <div class="card" aria-live="polite">
+    <h2>Buyer's order</h2>
+    <ul class="lines" id="lines"></ul>
+    <div class="total"><b>TOTAL</b><span class="amt" id="total">$0.00</span></div>
+  </div>
+</div>
+
+<script>
+  var $ = function (id) { return document.getElementById(id); };
+  var money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+  function num(id) {
+    var v = parseFloat(String($(id).value).replace(/[^0-9.\-]/g, ""));
+    return isFinite(v) ? v : 0;
+  }
+  function fmt(v) { return money.format(Math.round(v * 100) / 100); }
+  function li(label, value, cls) {
+    return '<li' + (cls ? ' class="' + cls + '"' : '') + '><span>' + label + '</span><span>' + fmt(value) + '</span></li>';
+  }
+
+  var COUNTY_BASE = 2, STATE_BASE = 106, PROCESSING = 13.5;
+
+  function calc() {
+    var price = num("price"), doc = num("doc"), rate = num("rate");
+    var uniform = parseFloat($("age").value) || 0;
+    var power = parseFloat($("power").value) || 0;
+
+    var taxable = price + doc;
+    var tax = Math.round(taxable * rate) / 100;
+    var county = COUNTY_BASE + uniform;
+    var state = STATE_BASE + power;
+    var reg = county + state + PROCESSING;
+    var total = price + doc + tax + reg;
+
+    var rows = "";
+    rows += li("Vehicle price", price);
+    rows += li("Dealer doc fee", doc);
+    rows += li("Sales tax (" + rate + "% on " + fmt(taxable) + ")", tax);
+    rows += li("Registration fee", reg);
+    rows += li("County fee", county, "sub");
+    rows += li("State fee", state, "sub");
+    rows += li("Processing fee", PROCESSING, "sub");
+    $("lines").innerHTML = rows;
+    $("total").textContent = fmt(total);
+  }
+
+  document.querySelectorAll("input, select").forEach(function (el) {
+    el.addEventListener("input", calc);
+    el.addEventListener("change", calc);
+  });
+  calc();
+</script>
+
+</body></html>
